@@ -1,0 +1,110 @@
+function Backup-SqlDB([string]$db, [string]$instance)
+{
+   # "Backing Up Sql Server Databases..."
+    #[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.SMO") | Out-Null
+    #[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.SmoExtended") | Out-Null
+    #[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.ConnectionInfo") | Out-Null
+    #[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.SmoEnum") | Out-Null
+
+    #$backupDir = 'V:\' 
+
+    #$server = New-Object ("Microsoft.SqlServer.Management.Smo.Server")  $instance  
+    #Write-Host $server
+        
+    #$smoBackup = New-Object("Microsoft.SqlServer.Management.Smo.Backup")
+
+    #Write-Host $db
+
+        
+    #$smoBackup.Action = "Database"
+    #$smoBackup.BackupSetDescription = "Full backup of " + $db
+    #$smoBackup.BackupSetName = $db + " Backup"
+    #$smoBackup.Database = $db
+   # $smoBackup.MediaDescription = "Disk"
+
+  #  Write-Host ($backupDir + $db)
+
+ #   $smoBackup.Devices.AddDevice(($backupDir + $db) + ".bak", "File")
+
+#    $smoBackup.SqlBackup($server) 
+
+    Write-Host $db "Sql Server Backup Finished"
+}
+function Backup-SqlDBAll([string] $backupDir)
+{
+    "Backing Up Sql Server Databases..."
+    [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.SMO") | Out-Null
+    [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.SmoExtended") | Out-Null
+    [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.ConnectionInfo") | Out-Null
+    [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.SmoEnum") | Out-Null
+    
+$srvname="localhost"
+$mySrvConn = new-object Microsoft.SqlServer.Management.Common.ServerConnection
+$mySrvConn.ServerInstance=$srvname
+$mySrvConn.LoginSecure = $false
+$mySrvConn.Login = "username"
+$mySrvConn.Password = "pass"
+    
+    
+    #$server = New-Object ("Microsoft.SqlServer.Management.Smo.Server") "localhost"
+    $server = new-object Microsoft.SqlServer.Management.SMO.Server($mySrvConn)
+    Write-Host $server  
+    
+    foreach ($db in $server.Databases)
+    {   
+    
+        $dbName = $db.name.Replace("[","")
+        $dbName = $dbName.Replace("]","")
+        
+        $smoBackup = New-Object("Microsoft.SqlServer.Management.Smo.Backup")    
+        $smoBackup.Action = "Database"
+        $smoBackup.BackupSetDescription = "Full backup of " + $dbName
+        $smoBackup.BackupSetName = $dbName + " Backup"
+        $smoBackup.Database = $dbName
+        $smoBackup.MediaDescription = "Disk"
+
+        Write-Host ($backupDir + $dbName)
+
+        $smoBackup.Devices.AddDevice(($backupDir + $dbName) + ".bak", "File")
+
+        if($dbName -ne "tempdb") {
+            $smoBackup.SqlBackup( $server ) 
+        }
+    }
+
+    Write-Host "Sql Server Backup Finished"
+}
+
+function Zip-DB([string] $directory)
+{
+    "Zipping the files..."
+    #Zip the backup files
+    Set-Location "C:\Program Files\7-Zip\"
+    cmd /c 7z.exe a -r c:\backup\daily\DBbackup.7z c:\backup\daily\*.bak c:\backup\daily\*.sql
+    
+    remove-Item v:\*.bak
+    remove-Item v:\*.sql
+	"Databases zipped."
+}
+function Ftp-Upload()
+{
+    $fileDB = "c:\backup\DB1.bak"
+    #$fileDB2 = "c:\backup\DB2.bak"
+    
+    $ftp = "ftp://user:pass@ftp.servername.com/DB.bak"
+    $ftp2 = "ftp://user:pass@ftp2.servername.com/DB2.bak"
+    
+    $webclient = New-Object System.Net.WebClient
+    $uri = New-Object System.Uri($ftp)
+    #$uri2 = New-Object System.Uri($ftp2)
+
+    "Uploading $fileDB..."
+    $webclient.UploadFile($uri, $fileDB)
+    "Done."
+    #"Uploading $fileDB2..."
+    #$webclient.UploadFile($uri2, $fileDB2)
+}
+cls
+Remove-Item c:\backup\*
+Backup-SqlDBAll 'c:\backup\'
+Ftp-Upload
